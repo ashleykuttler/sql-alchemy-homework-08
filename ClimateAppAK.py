@@ -45,8 +45,7 @@ def Homepage():
         f"/api/v1.0/precipitation --Precipitation Data For Previous Year<br/>"
         f"/api/v1.0/stations --Station List<br/>"
         f"/api/v1.0/tobs --Temperature Data for Previous Year<br/>"
-        f"/api/v1.0/[start date: yyyy-mm-dd] --Choose Start Date for Avg/Min/Max Temps for Start Date through Today<br>/" 
-        f"/api/v1.0/[start date: yyyy-mm-dd]/[end date: yyyy-mm-dd] --Choose Start and End Date for Avg/Min/Max Temps for give Range"
+        f"/api/v1.0/ start date: yyyy-mm-dd/end date: yyyy-mm-dd --Choose Start and End Date for Avg/Min/Max Temps for given Range"
     )
 
 @app.route("/api/v1.0/precipitation")
@@ -94,28 +93,35 @@ def tobs():
     # Return jsonified list
     return (jsonify(tobs_dict))
 
-@app.route("/api/v1.0/<start_date>")
-@app.route("/api/v1.0/<start_date>/<end_date>")
-def temp_stats(start_date, end_date=0):
-    session = Session(bind=engine)    
-    # If no end date, then make end date today's date 
-    if end_date == 0:
-        end_date = dt.date.today()
-    
-    # Query database for tobs between start and end date
-    selection = session.query(Measurement.tobs)\
-            .filter(Measurement.date >= start_date,\
-            Measurement.date <= end_date,\
-            Measurement.tobs != None).all()
-    tobs_df = pd.DataFrame(selection, columns = ['tobs'])
-    # Append items into a list
-    tobs_list = []
-    tobs_list.append(np.asscalar(np.int16(tobs_df['tobs'].min())))
-    tobs_list.append(np.asscalar(np.int16(tobs_df['tobs'].mean())))
-    tobs_list.append(np.asscalar(np.int16(tobs_df['tobs'].max())))
-    
-    # Return JSONified list of minimum, average and maximum temperatures
-    return (jsonify(tobs_list))
+@app.route("/api/v1.0/<start>")
+def start(start):
+    session = Session(bind=engine)
+    start = session.query(func.avg(Measurement.tobs), func.min(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).all()
+    start_list = []    
+    for t_avg, t_min, t_max in start:
+        tobs_dict={}
+        tobs_dict["Average Temp: "] = t_avg
+        tobs_dict["Minimum Temp: "] = t_min
+        tobs_dict["Maximum Temp: "] = t_max
+        start_list.append(tobs_dict)
+
+    return jsonify(start_list)
+
+@app.route("/api/v1.0/<start>/<end>")
+def start_end(start, end):
+    session = Session(bind=engine)
+    start_end = session.query(func.avg(Measurement.tobs), func.min(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start, Measurement.date <= end).all()
+    start_end_list = []    
+    for t_avg, t_min, t_max in start_end:
+        tobs_dict={}
+        tobs_dict["Average Temp: "] = t_avg
+        tobs_dict["Minimum Temp: "] = t_min
+        tobs_dict["Maximum Temp: "] = t_max
+        start_end_list.append(tobs_dict)
+
+    return jsonify(start_end_list)
 
 if __name__ == "__main__":
     app.run(debug=True)
